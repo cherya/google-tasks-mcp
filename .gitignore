@@ -1,0 +1,22 @@
+# Binary
+tasks-mcp
+
+# Credentials and tokens
+*-credentials.json
+*-token.json
+credentials*.json
+token*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+
+# Go
+*.exe
+*.test
+*.out
