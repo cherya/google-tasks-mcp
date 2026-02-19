@@ -23,22 +23,30 @@ MCP server for Google Tasks. Runs over stdio using JSON-RPC 2.0.
 
 Follow [docs/google-oauth-setup.md](docs/google-oauth-setup.md) to create OAuth credentials and authorize.
 
-### 2. Build
+### 2. Install
 
+```bash
+go install github.com/cherya/google-tasks-mcp@latest
 ```
-go build -o tasks-mcp
+
+Or build from source:
+
+```bash
+git clone https://github.com/cherya/google-tasks-mcp.git
+cd google-tasks-mcp
+go build -o google-tasks-mcp .
 ```
 
 ### 3. Authorize
 
-```
+```bash
 # Get the authorization URL
-GOOGLE_OAUTH_CREDENTIALS=/path/to/oauth-client.json ./tasks-mcp --auth
+GOOGLE_OAUTH_CREDENTIALS=/path/to/oauth-client.json google-tasks-mcp --auth
 
 # Open the URL in a browser, authorize, copy the code
 
 # Exchange the code for a token
-GOOGLE_OAUTH_CREDENTIALS=/path/to/oauth-client.json ./tasks-mcp --token <CODE>
+GOOGLE_OAUTH_CREDENTIALS=/path/to/oauth-client.json google-tasks-mcp --token <CODE>
 ```
 
 ### 4. Environment Variables
@@ -54,7 +62,7 @@ Add to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "google-tasks": {
-      "command": "/path/to/tasks-mcp",
+      "command": "google-tasks-mcp",
       "env": {
         "GOOGLE_OAUTH_CREDENTIALS": "/path/to/oauth-client.json",
         "GOOGLE_TOKEN_FILE": "/path/to/tasks-token.json"

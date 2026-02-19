@@ -1,4 +1,4 @@
-module tasks-mcp
+module github.com/cherya/google-tasks-mcp
 
 go 1.24.0
 
