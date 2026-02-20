@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"google.golang.org/api/tasks/v1"
 )
@@ -57,6 +58,7 @@ type TasksService interface {
 
 type Server struct {
 	tasks TasksService
+	loc   *time.Location
 }
 
 func main() {
@@ -98,12 +100,21 @@ func main() {
 		log.Fatalf("Failed to get HTTP client: %v", err)
 	}
 
-	tasksClient, err := NewTasksClientOAuth(httpClient)
+	timezone := os.Getenv("TIMEZONE")
+	if timezone == "" {
+		timezone = "UTC"
+	}
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		log.Fatalf("Invalid TIMEZONE %q: %v", timezone, err)
+	}
+
+	tasksClient, err := NewTasksClientOAuth(httpClient, loc)
 	if err != nil {
 		log.Fatalf("Failed to create tasks client: %v", err)
 	}
 
-	server := &Server{tasks: tasksClient}
+	server := &Server{tasks: tasksClient, loc: loc}
 	server.run()
 }
 
@@ -238,7 +249,7 @@ func (s *Server) handleToolsList(req JSONRPCRequest) *JSONRPCResponse {
 					},
 					"due": map[string]interface{}{
 						"type":        "string",
-						"description": "Due date in YYYY-MM-DD format (optional)",
+						"description": "Due date in YYYY-MM-DD or YYYY-MM-DDTHH:MM format (optional)",
 					},
 				},
 				"required": []string{"title"},
@@ -269,7 +280,7 @@ func (s *Server) handleToolsList(req JSONRPCRequest) *JSONRPCResponse {
 					},
 					"due": map[string]interface{}{
 						"type":        "string",
-						"description": "New due date in YYYY-MM-DD format (optional)",
+						"description": "New due date in YYYY-MM-DD or YYYY-MM-DDTHH:MM format (optional)",
 					},
 				},
 				"required": []string{"task_id"},
@@ -422,7 +433,7 @@ func (s *Server) callListTasks(ctx context.Context, id interface{}, args json.Ra
 			result += fmt.Sprintf("  Notes: %s\n", t.Notes)
 		}
 		if t.Due != "" {
-			result += fmt.Sprintf("  Due: %s\n", t.Due)
+			result += fmt.Sprintf("  Due: %s\n", formatDue(t.Due, s.loc))
 		}
 		result += fmt.Sprintf("  ID: %s\n\n", t.ID)
 	}
@@ -458,7 +469,7 @@ func (s *Server) callCreateTask(ctx context.Context, id interface{}, args json.R
 
 	result := fmt.Sprintf("Task created successfully!\nID: %s\nTitle: %s", task.Id, task.Title)
 	if task.Due != "" {
-		result += fmt.Sprintf("\nDue: %s", task.Due)
+		result += fmt.Sprintf("\nDue: %s", formatDue(task.Due, s.loc))
 	}
 
 	return s.successResponse(id, result)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 type TasksClient struct {
 	service *tasks.Service
+	loc     *time.Location
 }
 
 type TaskItem struct {
@@ -28,7 +30,7 @@ type TaskListItem struct {
 }
 
 // NewTasksClientOAuth creates a client using OAuth2 token
-func NewTasksClientOAuth(httpClient *http.Client) (*TasksClient, error) {
+func NewTasksClientOAuth(httpClient *http.Client, loc *time.Location) (*TasksClient, error) {
 	ctx := context.Background()
 
 	srv, err := tasks.NewService(ctx, option.WithHTTPClient(httpClient))
@@ -38,7 +40,32 @@ func NewTasksClientOAuth(httpClient *http.Client) (*TasksClient, error) {
 
 	return &TasksClient{
 		service: srv,
+		loc:     loc,
 	}, nil
+}
+
+// parseDue converts user input (YYYY-MM-DD or YYYY-MM-DDTHH:MM) to RFC3339 in the configured timezone.
+func parseDue(due string, loc *time.Location) (string, error) {
+	if t, err := time.ParseInLocation("2006-01-02T15:04", due, loc); err == nil {
+		return t.Format(time.RFC3339), nil
+	}
+	if t, err := time.ParseInLocation("2006-01-02", due, loc); err == nil {
+		return t.Format(time.RFC3339), nil
+	}
+	return "", fmt.Errorf("invalid due format %q, expected YYYY-MM-DD or YYYY-MM-DDTHH:MM", due)
+}
+
+// formatDue converts RFC3339 from Google API to a human-readable string in the configured timezone.
+func formatDue(rfc3339 string, loc *time.Location) string {
+	t, err := time.Parse(time.RFC3339, rfc3339)
+	if err != nil {
+		return rfc3339
+	}
+	t = t.In(loc)
+	if t.Hour() == 0 && t.Minute() == 0 {
+		return t.Format("2006-01-02")
+	}
+	return t.Format("2006-01-02 15:04")
 }
 
 // ListTaskLists returns all task lists
@@ -98,8 +125,11 @@ func (c *TasksClient) CreateTask(ctx context.Context, tasklistID, title, notes, 
 	}
 
 	if due != "" {
-		// Convert YYYY-MM-DD to RFC3339
-		task.Due = due + "T00:00:00.000Z"
+		parsed, err := parseDue(due, c.loc)
+		if err != nil {
+			return nil, err
+		}
+		task.Due = parsed
 	}
 
 	return c.service.Tasks.Insert(tasklistID, task).Context(ctx).Do()
@@ -132,7 +162,11 @@ func (c *TasksClient) UpdateTask(ctx context.Context, tasklistID, taskID string,
 		if *updates.Due == "" {
 			existing.Due = ""
 		} else {
-			existing.Due = *updates.Due + "T00:00:00.000Z"
+			parsed, err := parseDue(*updates.Due, c.loc)
+			if err != nil {
+				return nil, err
+			}
+			existing.Due = parsed
 		}
 	}
 	if updates.Status != nil {
