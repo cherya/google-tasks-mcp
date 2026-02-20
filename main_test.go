@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/api/tasks/v1"
 )
@@ -56,7 +57,7 @@ func (f *fakeTasks) DeleteTask(_ context.Context, tasklistID, taskID string) err
 }
 
 func newTestServer(fake *fakeTasks) *Server {
-	return &Server{tasks: fake}
+	return &Server{tasks: fake, loc: time.UTC}
 }
 
 func TestHandleInitialize(t *testing.T) {
@@ -175,7 +176,7 @@ func TestCallListTasks_DefaultTasklist(t *testing.T) {
 func TestCallListTasks_WithNotesAndDue(t *testing.T) {
 	fake := &fakeTasks{
 		taskItems: []TaskItem{
-			{ID: "t1", Title: "Task", Status: "needsAction", Notes: "Some notes", Due: "2026-03-01"},
+			{ID: "t1", Title: "Task", Status: "needsAction", Notes: "Some notes", Due: "2026-03-01T00:00:00Z"},
 		},
 	}
 	s := newTestServer(fake)
@@ -184,6 +185,25 @@ func TestCallListTasks_WithNotesAndDue(t *testing.T) {
 	text := getResponseText(t, resp)
 	if !strings.Contains(text, "Some notes") || !strings.Contains(text, "2026-03-01") {
 		t.Errorf("expected notes and due in response, got: %s", text)
+	}
+}
+
+func TestCallListTasks_WithDueTime(t *testing.T) {
+	loc, err := time.LoadLocation("Asia/Tbilisi")
+	if err != nil {
+		t.Fatalf("failed to load timezone: %v", err)
+	}
+	fake := &fakeTasks{
+		taskItems: []TaskItem{
+			{ID: "t1", Title: "Task", Status: "needsAction", Due: "2026-03-01T10:30:00+04:00"},
+		},
+	}
+	s := &Server{tasks: fake, loc: loc}
+
+	resp := s.callListTasks(context.Background(), float64(1), nil)
+	text := getResponseText(t, resp)
+	if !strings.Contains(text, "2026-03-01 10:30") {
+		t.Errorf("expected formatted due with time, got: %s", text)
 	}
 }
 
@@ -215,7 +235,7 @@ func TestCallListTasks_Empty(t *testing.T) {
 
 func TestCallCreateTask(t *testing.T) {
 	fake := &fakeTasks{
-		created: &tasks.Task{Id: "new-1", Title: "New task", Due: "2026-03-15T00:00:00.000Z"},
+		created: &tasks.Task{Id: "new-1", Title: "New task", Due: "2026-03-15T00:00:00Z"},
 	}
 	s := newTestServer(fake)
 
@@ -226,8 +246,8 @@ func TestCallCreateTask(t *testing.T) {
 		t.Fatalf("unexpected error: %v", resp.Error)
 	}
 	text := getResponseText(t, resp)
-	if !strings.Contains(text, "new-1") {
-		t.Errorf("expected task ID in response, got: %s", text)
+	if !strings.Contains(text, "new-1") || !strings.Contains(text, "2026-03-15") {
+		t.Errorf("expected task ID and due date in response, got: %s", text)
 	}
 }
 
