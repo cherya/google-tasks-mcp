@@ -189,7 +189,10 @@ func TestCallListTasks_WithNotesAndDue(t *testing.T) {
 }
 
 func TestCallListTasks_WithDueTime(t *testing.T) {
-	loc, _ := time.LoadLocation("Asia/Tbilisi")
+	loc, err := time.LoadLocation("Asia/Tbilisi")
+	if err != nil {
+		t.Fatalf("failed to load timezone: %v", err)
+	}
 	fake := &fakeTasks{
 		taskItems: []TaskItem{
 			{ID: "t1", Title: "Task", Status: "needsAction", Due: "2026-03-01T10:30:00+04:00"},

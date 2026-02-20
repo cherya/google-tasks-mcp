@@ -46,6 +46,9 @@ func NewTasksClientOAuth(httpClient *http.Client, loc *time.Location) (*TasksCli
 
 // parseDue converts user input (YYYY-MM-DD or YYYY-MM-DDTHH:MM) to RFC3339 in the configured timezone.
 func parseDue(due string, loc *time.Location) (string, error) {
+	if loc == nil {
+		loc = time.UTC
+	}
 	if t, err := time.ParseInLocation("2006-01-02T15:04", due, loc); err == nil {
 		return t.Format(time.RFC3339), nil
 	}
@@ -57,9 +60,16 @@ func parseDue(due string, loc *time.Location) (string, error) {
 
 // formatDue converts RFC3339 from Google API to a human-readable string in the configured timezone.
 func formatDue(rfc3339 string, loc *time.Location) string {
+	if loc == nil {
+		loc = time.UTC
+	}
 	t, err := time.Parse(time.RFC3339, rfc3339)
 	if err != nil {
-		return rfc3339
+		// Google API may return fractional seconds (e.g. "...T00:00:00.000Z")
+		t, err = time.Parse(time.RFC3339Nano, rfc3339)
+		if err != nil {
+			return rfc3339
+		}
 	}
 	t = t.In(loc)
 	if t.Hour() == 0 && t.Minute() == 0 {
