@@ -15,7 +15,7 @@ import (
 
 const (
 	serverName    = "google-tasks"
-	serverVersion = "1.0.0"
+	serverVersion = "1.1.0"
 
 	toolListTaskLists = "list_task_lists"
 	toolListTasks     = "list_tasks"
